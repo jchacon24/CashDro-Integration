@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Punto de Venta</title>
+    <link rel="stylesheet" href="assets/css/styles.css">
+    <script src="assets/js/scripts.js" defer></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            display: flex;
+            padding: 20px;
+        }
+        .products {
+            flex: 3;
+            padding: 20px;
+        }
+        .cart {
+            flex: 1;
+            padding: 20px;
+            border-left: 1px solid #ccc;
+        }
+        .cart .cart-item {
+            margin-bottom: 10px;
+        }
+        .cart-total {
+            margin-top: 20px;
+        }
+        .btn {
+            background-color: #009688;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            width: 200px;
+        }
+        img{
+            width: 200px; 
+            height: 200px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Facturar - Productos</h1>
+    </header>
+    <div class="container">
+        <div class="products">
+            <div>
+                <p><img src="./assets/images/american.jpg" alt=""></p>
+                <p>Americano - $2000</p>
+                <button class="btn" onclick="addToCart('Americano', 2000)">
+                    Agregar producto
+                </button>
+            </div>
+            <div>
+                <p><img src="./assets/images/american.jpg" alt=""></p>
+                <p>Americano Doble - $5000</p>
+                <button class="btn" onclick="addToCart('Americano Doble', 5000)">
+                    Agregar producto
+                </button>
+            </div>
+            <!-- Agrega más productos aquí -->
+        </div>
+        <div class="cart">
+            <h2>Ticket de venta</h2>
+            <div id="cart-items"></div>
+            <div class="cart-total">
+                Total: $<span id="cart-total">0</span>
+            </div>
+            <button class="btn" id="venderBtn">Vender</button>
+            <div id="transaccion-result"></div>
+        </div>
+    </div>
+
+    <script>
+        let cart = [];
+        let total = 0;
+        let operationId = null;
+
+        function addToCart(product, price) {
+            cart.push({ product, price });
+            total += price;
+            updateCart();
+        }
+
+        function updateCart() {
+            const cartItems = document.getElementById('cart-items');
+            cartItems.innerHTML = '';
+            cart.forEach(item => {
+                const cartItem = document.createElement('div');
+                cartItem.className = 'cart-item';
+                cartItem.innerText = `${item.product} - $${item.price}`;
+                cartItems.appendChild(cartItem);
+            });
+            document.getElementById('cart-total').innerText = total.toFixed(2);
+        }
+
+        async function startOperation() {
+            try {
+                const url = `https://190.145.93.236/Cashdro3WS/index3.php?operation=startOperation&name=admin&password=1&type=4&posid=ds&parameters={"amount":"${total.toFixed(2)}"}&startnow=true&posuser=Jose`;
+                console.log('URL de inicio de operación:', url);
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                console.log('Resultado de inicio de operación:', result);
+                
+                if (result.success) {
+                    operationId = result.operationId; // Asume que la respuesta contiene el operationId
+                    return true;
+                } else {
+                    throw new Error('Error al iniciar la operación: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error al iniciar la operación:', error);
+                document.getElementById('transaccion-result').innerText = 'Error al iniciar la operación. Inténtelo nuevamente. ' + error.message;
+                return false;
+            }
+        }
+
+        async function acknowledgeOperation() {
+            if (!operationId) {
+                document.getElementById('transaccion-result').innerText = 'No hay ninguna operación para confirmar.';
+                return;
+            }
+
+            try {
+                const url = `https://190.145.93.236/Cashdro3WS/index3.php?operation=acknowledgeOperationId&name=admin&password=1&operationId=${operationId}`;
+                console.log('URL de confirmación de operación:', url);
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                console.log('Resultado de confirmación de operación:', result);
+                
+                if (result.success) {
+                    document.getElementById('transaccion-result').innerText = `Transacción confirmada: ${result.message}`;
+                    cart = [];
+                    total = 0;
+                    updateCart();
+                    operationId = null;
+                } else {
+                    throw new Error('Error al confirmar la operación: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error al confirmar la operación:', error);
+                document.getElementById('transaccion-result').innerText = 'Error al confirmar la operación. Inténtelo nuevamente. ' + error.message;
+            }
+        }
+
+        document.getElementById('venderBtn').addEventListener('click', async () => {
+            const started = await startOperation();
+            if (started) {
+                await acknowledgeOperation();
+            }
+        });
+    </script>
+</body>
+</html>
